@@ -1,22 +1,23 @@
 from langchain.chat_models import ChatOpenAI
 from langchain import LLMChain
 from langchain.prompts import MessagesPlaceholder, HumanMessagePromptTemplate, ChatPromptTemplate
-from langchain.memory import ConversationBufferMemory, FileChatMessageHistory
+from langchain.memory import ConversationSummaryMemory, FileChatMessageHistory
 from dotenv import load_dotenv
 
 load_dotenv()
 
-chat = ChatOpenAI()
+chat = ChatOpenAI(verbose=True)
 
 # The input variable name that gets added in here is whatever we provide for that memory key option right there.
 # So because we put in messages, the input set of input variables is gonna get this additional variable 
 # called messages and whatever data our memory is storing that will be assigned to that key.
 # return_message = True makes sure that in our set of input variables is not just a plain string. They are the human, system,
 # AI messages that we have stored in our memory.
-memory = ConversationBufferMemory(
-    chat_memory=FileChatMessageHistory("messages.json"),
+memory = ConversationSummaryMemory(
+    # chat_memory=FileChatMessageHistory("messages.json"),
     memory_key="messages", 
-    return_messages=True
+    return_messages=True,
+    llm=chat
 )
 
 prompt = ChatPromptTemplate(
@@ -30,7 +31,8 @@ prompt = ChatPromptTemplate(
 chain = LLMChain(
     llm=chat,
     prompt=prompt,
-    memory=memory
+    memory=memory,
+    verbose=True
 ) 
 
 while True:
