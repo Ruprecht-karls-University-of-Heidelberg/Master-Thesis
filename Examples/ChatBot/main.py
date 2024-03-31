@@ -1,62 +1,41 @@
-from langchain.llms import OpenAI
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain, SequentialChain
+from langchain.chat_models import ChatOpenAI
+from langchain import LLMChain
+from langchain.prompts import MessagesPlaceholder, HumanMessagePromptTemplate, ChatPromptTemplate
+from langchain.memory import ConversationBufferMemory, FileChatMessageHistory
 from dotenv import load_dotenv
-import argparse
-import json
 
-# Load environment variables from a .env file
 load_dotenv()
 
-# Set up argument parsing for command-line options
-parser = argparse.ArgumentParser()
-parser.add_argument("--task", default="return a list of numbers", help="The task to generate code for")
-parser.add_argument("--language", default="python", help="The programming language for the code")
-args = parser.parse_args()
+chat = ChatOpenAI()
 
-# Initialize the OpenAI object from LangChain with API keys loaded from environment variables
-llm = OpenAI()
-
-# Create a PromptTemplate for generating code based on the task and language
-code_prompt = PromptTemplate(
-    input_variables=["task", "language"],
-    template="Write a very short {language} function that will {task}."
+# The input variable name that gets added in here is whatever we provide for that memory key option right there.
+# So because we put in messages, the input set of input variables is gonna get this additional variable 
+# called messages and whatever data our memory is storing that will be assigned to that key.
+# return_message = True makes sure that in our set of input variables is not just a plain string. They are the human, system,
+# AI messages that we have stored in our memory.
+memory = ConversationBufferMemory(
+    chat_memory=FileChatMessageHistory("messages.json"),
+    memory_key="messages", 
+    return_messages=True
 )
 
-# Create another PromptTemplate for generating tests for the code
-test_prompt = PromptTemplate(
-    input_variables=["language", "code"],
-    template="Write a test for the following {language} code:\n{code}"
+prompt = ChatPromptTemplate(
+    input_variables=["content", "messages"],
+    messages=[
+        MessagesPlaceholder(variable_name="messages"),
+        HumanMessagePromptTemplate.from_template("{content}")
+    ]
 )
 
-# Set up LLMChains for generating code and tests, with output keys specified to capture results
-code_chain = LLMChain(
-    llm=llm,
-    prompt=code_prompt,
-    output_key="code"
-)
-test_chain = LLMChain(
-    llm=llm,
-    prompt=test_prompt,
-    output_key="test"
-)
+chain = LLMChain(
+    llm=chat,
+    prompt=prompt,
+    memory=memory
+) 
 
-# Create a SequentialChain to first generate code and then generate a test for that code
-chain = SequentialChain(
-    chains=[code_chain, test_chain],
-    input_variables=["task", "language"],
-    output_variables=["code", "test"]
-)
+while True:
+    content = input("You: ")
 
-# Execute the SequentialChain with the provided task and language arguments
-result = chain({
-    "language": args.language,
-    "task": args.task
-})
+    result = chain({"content": content})
 
-# Print the generated code and test to the console
-print(">>>>>> GENERATED CODE:  <<<<<<\n")
-print(result["code"] or "No code generated.")
-
-print(">>>>>> GENERATED TEST: <<<<<<\n")
-print(result["test"] or "No test generated.")
+    print("ChatBot:", result.get("text", "Sorry, I am not sure how to respond to that."))
